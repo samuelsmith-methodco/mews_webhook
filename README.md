@@ -50,14 +50,34 @@ python main.py
 - **GET /** – Service info.
 - **GET /health** – Health check.
 - **POST /webhook/general** – Mews General Webhook. Expects JSON body with `EnterpriseId`, `IntegrationId`, `Events[]`. Responds with **202 Accepted** and processes events asynchronously (respond within 5 seconds as per Mews FAQ).
+- **WS /ws/events** – Inbound WebSocket for testing. Send Mews-style JSON: `{"Events": [{"Type": "...", ...}, ...]}`. Server replies with `{"ok": true, "processed": N}` or an error. Use from Postman (New → WebSocket) or a script to test Command, Reservation, Resource, and PriceUpdate without Mews credentials.
 
 ## Webhook authentication
 
 If you register a shared secret with Mews, set `MEWS_WEBHOOK_TOKEN`. Mews may send the token as a query parameter; the server also accepts `X-Webhook-Token` header.
 
-## WebSocket client
+## WebSocket
 
-If `MEWS_WS_BASE_URL`, `MEWS_CLIENT_TOKEN`, and `MEWS_ACCESS_TOKEN` are set, the app opens a background WebSocket connection to `{MEWS_WS_BASE_URL}/ws/connector` and processes Command, Reservation, Resource, and PriceUpdate events. Events are logged; extend `handlers.process_websocket_events` for your logic.
+### Outbound client (Mews)
+
+If `MEWS_WS_BASE_URL`, `MEWS_CLIENT_TOKEN`, and `MEWS_ACCESS_TOKEN` are set, the app opens a background WebSocket connection to `{MEWS_WS_BASE_URL}/ws/connector` with exponential backoff on reconnect, and processes Command, Reservation, Resource, and PriceUpdate events. Events are logged; extend `handlers.process_websocket_events` for your logic.
+
+### Testing WebSocket events (inbound `/ws/events`)
+
+Connect to `ws://127.0.0.1:8000/ws/events` (e.g. in Postman: New → WebSocket, enter the URL, Connect). Send a JSON message in Mews format:
+
+```json
+{
+  "Events": [
+    { "Type": "DeviceCommand", "Id": "2391a3df-1c61-4131-b6f8-c85b4234adcb", "State": "Pending" },
+    { "Type": "Reservation", "Id": "bfee2c44-1f84-4326-a862-5289598f6e2d", "State": "Processed", "StartUtc": "2016-02-20T13:00:00Z", "EndUtc": "2016-02-22T11:00:00Z" },
+    { "Type": "Resource", "Id": "5ee074b1-6c86-48e8-915f-c7aa4702086f", "State": "Dirty" },
+    { "Type": "PriceUpdate", "Id": "bd75f159-f22a-4685-abdb-aac0008e2af3", "StartUtc": "2019-09-07T22:00:00Z", "EndUtc": "2019-09-07T22:00:00Z", "RateId": "9c6c0556-42bb-409a-86ca-6ca430773b99", "ResourceCategoryId": null }
+  ]
+}
+```
+
+The server processes the events (same handler as Mews WebSocket) and replies with `{"ok": true, "processed": 4}`. Check the server console for log lines for each event type.
 
 ## Next steps
 

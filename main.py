@@ -2,16 +2,18 @@
 Mews webhook receiver: FastAPI + Uvicorn.
 
 - General Webhook: POST /webhook/general (Reservation + Resource events).
-- Optional WebSocket client to Mews for Command, Reservation, Resource, PriceUpdate.
+- WebSocket client to Mews for Command, Reservation, Resource, PriceUpdate (when configured).
+- Inbound WebSocket /ws/events for testing (same message format as Mews).
 """
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import sys
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import JSONResponse
 
 import config
@@ -40,16 +42,23 @@ async def run_mews_websocket_client() -> None:
         logger.info("Mews WebSocket not configured (MEWS_WS_BASE_URL, MEWS_CLIENT_TOKEN, MEWS_ACCESS_TOKEN); skipping.")
         return
     url = f"{base}/ws/connector"
-    # Cookie: ClientToken=...; AccessToken=... (no spaces around =)
     cookies = f"ClientToken={client_token};AccessToken={access_token}"
     headers = {"Cookie": cookies}
+    backoff_sec = 5
+    max_backoff_sec = 300
     while True:
         try:
-            async with websockets.connect(url, extra_headers=headers) as ws:
+            async with websockets.connect(
+                url,
+                extra_headers=headers,
+                ping_interval=30,
+                ping_timeout=10,
+                close_timeout=5,
+            ) as ws:
+                backoff_sec = 5
                 logger.info("Connected to Mews WebSocket %s", url)
                 async for raw in ws:
                     try:
-                        import json
                         data = json.loads(raw)
                         events = data.get("Events") or []
                         process_websocket_events(events)
@@ -59,7 +68,10 @@ async def run_mews_websocket_client() -> None:
             break
         except Exception as e:
             logger.exception("Mews WebSocket connection error: %s", e)
-        await asyncio.sleep(5)
+        delay = min(backoff_sec, max_backoff_sec)
+        logger.info("Reconnecting to Mews WebSocket in %s seconds", delay)
+        await asyncio.sleep(delay)
+        backoff_sec = min(backoff_sec * 2, max_backoff_sec)
 
 
 @asynccontextmanager
@@ -89,6 +101,32 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.websocket("/ws/events")
+async def websocket_events(websocket: WebSocket):
+    """
+    Inbound WebSocket for testing Mews-style events (Command, Reservation, Resource, PriceUpdate).
+    Send JSON messages: {"Events": [{"Type": "...", ...}, ...]}.
+    Same format as Mews WebSocket; use from Postman or a script to test without Mews credentials.
+    """
+    await websocket.accept()
+    logger.info("WebSocket client connected to /ws/events")
+    try:
+        while True:
+            raw = await websocket.receive_text()
+            try:
+                data = json.loads(raw)
+                events = data.get("Events") or []
+                process_websocket_events(events)
+                await websocket.send_json({"ok": True, "processed": len(events)})
+            except json.JSONDecodeError as e:
+                await websocket.send_json({"ok": False, "error": f"Invalid JSON: {e}"})
+            except Exception as e:
+                logger.exception("WebSocket event handling error: %s", e)
+                await websocket.send_json({"ok": False, "error": str(e)})
+    except WebSocketDisconnect:
+        logger.info("WebSocket client disconnected from /ws/events")
 
 
 def _check_webhook_token(request: Request) -> bool:
