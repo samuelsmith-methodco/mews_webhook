@@ -49,18 +49,24 @@ async def run_mews_websocket_client() -> None:
     url = f"{base}/ws/connector"
     cookies = f"ClientToken={client_token};AccessToken={access_token}"
     headers = {"Cookie": cookies}
+    # websockets 10.x (legacy) uses extra_headers; 14.x uses additional_headers
+    try:
+        major = int(getattr(websockets, "__version__", "0").split(".")[0])
+        header_kwarg = "additional_headers" if major >= 14 else "extra_headers"
+    except (ValueError, AttributeError):
+        header_kwarg = "extra_headers"
+    keepalive_interval_sec = 15
+    connect_kwargs = {
+        "ping_interval": keepalive_interval_sec,
+        "ping_timeout": 10,
+        "close_timeout": 5,
+        header_kwarg: headers,
+    }
     backoff_sec = 5
     max_backoff_sec = 300
-    keepalive_interval_sec = 15
     while True:
         try:
-            async with websockets.connect(
-                url,
-                extra_headers=headers,
-                ping_interval=keepalive_interval_sec,
-                ping_timeout=10,
-                close_timeout=5,
-            ) as ws:
+            async with websockets.connect(url, **connect_kwargs) as ws:
                 backoff_sec = 5
                 logger.info("Connected to Mews WebSocket %s (keepalive every %ss)", url, keepalive_interval_sec)
                 async for raw in ws:

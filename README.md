@@ -27,6 +27,8 @@ pip install -r requirements.txt
 | `HOST` | No | Optional | Bind host (default `0.0.0.0`). |
 | `PORT` | No | Optional | Bind port (default `8000`). |
 
+**Loading .env:** The app loads a `.env` file from the current working directory (via `python-dotenv`). For **Railway** (and similar PaaS), the app does **not** read a `.env` file at runtime — add `MEWS_ClientToken` and `MEWS_AccessToken` in the service **Variables** tab in the Railway dashboard so they are injected as environment variables.
+
 ### During certification
 
 - You **do not** have `MEWS_CLIENT_TOKEN` or `MEWS_ACCESS_TOKEN` yet; Mews provides those after certification. Leave `MEWS_WS_BASE_URL`, `MEWS_CLIENT_TOKEN`, and `MEWS_ACCESS_TOKEN` **unset**. The app will only run the **General Webhook** endpoint; the WebSocket client will stay disabled and log that it is not configured.

@@ -1,5 +1,8 @@
 """Configuration for Mews webhook receiver.
 
+Loads .env from the current working directory so MEWS_ClientToken, MEWS_AccessToken, etc.
+can be set in a .env file. On Railway/Heroku, set variables in the dashboard (no .env at runtime).
+
 Env vars:
   None required. For certification you can run with no env vars.
 
@@ -19,6 +22,12 @@ from __future__ import annotations
 
 import os
 from typing import Optional
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # no .env loading without python-dotenv
 
 
 def _env(name: str, default: Optional[str] = None) -> Optional[str]:
