@@ -21,9 +21,9 @@ pip install -r requirements.txt
 | Variable | Required? | When to set | Description |
 |----------|-----------|-------------|-------------|
 | `MEWS_WEBHOOK_TOKEN` | No | After Mews gives you a secret | Shared secret for webhook URL (query `?token=...` or header `X-Webhook-Token`). Omit during certification if no token is used. |
-| `MEWS_WS_BASE_URL` | No | **After certification** | Mews WebSocket base URL (e.g. `wss://ws.mews.com`). |
-| `MEWS_CLIENT_TOKEN` | No | **After certification** | Client token — **provided by Mews upon successful certification**. |
-| `MEWS_ACCESS_TOKEN` | No | **After certification** | Per-enterprise token — from the enterprise admin in Mews. |
+| `MEWS_WS_BASE_URL` | No | Optional | Mews WebSocket base URL. **Defaults to `wss://ws.mews.com`** (production). Override for Demo. |
+| `MEWS_CLIENT_TOKEN` or `MEWS_ClientToken` | No | **After certification** | Client token — provided by Mews. Either spelling is accepted. |
+| `MEWS_ACCESS_TOKEN` or `MEWS_AccessToken` | No | **After certification** | Per-enterprise token — from the enterprise admin. Either spelling is accepted. |
 | `HOST` | No | Optional | Bind host (default `0.0.0.0`). |
 | `PORT` | No | Optional | Bind port (default `8000`). |
 

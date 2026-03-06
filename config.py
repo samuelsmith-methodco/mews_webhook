@@ -28,10 +28,11 @@ def _env(name: str, default: Optional[str] = None) -> Optional[str]:
 # Optional: shared secret Mews adds to the webhook URL. Leave unset during certification.
 WEBHOOK_TOKEN: Optional[str] = _env("MEWS_WEBHOOK_TOKEN")
 
-# WebSocket (optional): set only after certification when Mews gives you these tokens.
-MEWS_WS_BASE_URL: Optional[str] = _env("MEWS_WS_BASE_URL")
-MEWS_CLIENT_TOKEN: Optional[str] = _env("MEWS_CLIENT_TOKEN")
-MEWS_ACCESS_TOKEN: Optional[str] = _env("MEWS_ACCESS_TOKEN")
+# WebSocket: accept either MEWS_CLIENT_TOKEN or MEWS_ClientToken (same for Access).
+# MEWS_WS_BASE_URL defaults to production; override for Demo.
+MEWS_WS_BASE_URL: Optional[str] = _env("MEWS_WS_BASE_URL") or "wss://ws.mews.com"
+MEWS_CLIENT_TOKEN: Optional[str] = _env("MEWS_CLIENT_TOKEN") or _env("MEWS_ClientToken")
+MEWS_ACCESS_TOKEN: Optional[str] = _env("MEWS_ACCESS_TOKEN") or _env("MEWS_AccessToken")
 
 # Bind host/port for Uvicorn
 HOST: str = _env("HOST", "0.0.0.0") or "0.0.0.0"

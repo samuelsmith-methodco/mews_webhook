@@ -29,7 +29,9 @@ logger = logging.getLogger(__name__)
 
 
 async def run_mews_websocket_client() -> None:
-    """Connect to Mews WebSocket and process Command, Reservation, Resource, PriceUpdate events."""
+    """Connect to Mews WebSocket and process Command, Reservation, Resource, PriceUpdate events.
+    Keeps connection alive with frequent pings and reconnects on any disconnect.
+    """
     try:
         import websockets
     except ImportError:
@@ -39,24 +41,28 @@ async def run_mews_websocket_client() -> None:
     client_token = config.MEWS_CLIENT_TOKEN
     access_token = config.MEWS_ACCESS_TOKEN
     if not base or not client_token or not access_token:
-        logger.info("Mews WebSocket not configured (MEWS_WS_BASE_URL, MEWS_CLIENT_TOKEN, MEWS_ACCESS_TOKEN); skipping.")
+        logger.info(
+            "Mews WebSocket not configured: set MEWS_ClientToken (or MEWS_CLIENT_TOKEN) and "
+            "MEWS_AccessToken (or MEWS_ACCESS_TOKEN); optionally MEWS_WS_BASE_URL (default wss://ws.mews.com). Skipping."
+        )
         return
     url = f"{base}/ws/connector"
     cookies = f"ClientToken={client_token};AccessToken={access_token}"
     headers = {"Cookie": cookies}
     backoff_sec = 5
     max_backoff_sec = 300
+    keepalive_interval_sec = 15
     while True:
         try:
             async with websockets.connect(
                 url,
                 extra_headers=headers,
-                ping_interval=30,
+                ping_interval=keepalive_interval_sec,
                 ping_timeout=10,
                 close_timeout=5,
             ) as ws:
                 backoff_sec = 5
-                logger.info("Connected to Mews WebSocket %s", url)
+                logger.info("Connected to Mews WebSocket %s (keepalive every %ss)", url, keepalive_interval_sec)
                 async for raw in ws:
                     try:
                         data = json.loads(raw)
@@ -69,7 +75,7 @@ async def run_mews_websocket_client() -> None:
         except Exception as e:
             logger.exception("Mews WebSocket connection error: %s", e)
         delay = min(backoff_sec, max_backoff_sec)
-        logger.info("Reconnecting to Mews WebSocket in %s seconds", delay)
+        logger.info("Mews WebSocket disconnected; reconnecting in %s seconds", delay)
         await asyncio.sleep(delay)
         backoff_sec = min(backoff_sec * 2, max_backoff_sec)
 
